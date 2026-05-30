@@ -12,7 +12,7 @@ def generate_thread_id():
 def get_configuration(thread_id=None):
     if thread_id is None:
         thread_id = st.session_state['thread_id']
-    return {'configurable': {'thread_id': thread_id}}
+    return {'configurable': {'thread_id': thread_id}, 'run_name': 'chat_turn'}
 
 def reset_chat():
     thread_id = generate_thread_id()
