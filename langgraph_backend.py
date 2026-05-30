@@ -7,6 +7,7 @@ from langgraph.graph.message import add_messages
 from langgraph.prebuilt import ToolNode, tools_condition
 from langchain_community.tools import DuckDuckGoSearchRun
 from langchain_core.tools import tool
+from langgraph.types import interrupt, Command
 from dotenv import load_dotenv
 import sqlite3
 import requests
@@ -60,7 +61,35 @@ def get_stock_price(symbol: str) -> dict:
     r = requests.get(url)
     return r.json()
 
-tools = [search_tool, get_stock_price, calculator]
+@tool
+def purchase_stock(symbol: str, quantity: int) -> dict:
+    """
+    Simulate purchasing a given quantity of a stock symbol.
+
+    HUMAN-IN-THE-LOOP:
+    Before confirming the purchase, this tool will interrupt
+    and wait for a human decision ("yes" / anything else).
+    """
+    # This pauses the graph and returns control to the caller
+    decision = interrupt(f"Approve buying {quantity} shares of {symbol}? (yes/no)")
+
+    if isinstance(decision, str) and decision.lower() == "yes":
+        return {
+            "status": "success",
+            "message": f"Purchase order placed for {quantity} shares of {symbol}.",
+            "symbol": symbol,
+            "quantity": quantity,
+        }
+    
+    else:
+        return {
+            "status": "cancelled",
+            "message": f"Purchase of {quantity} shares of {symbol} was declined by human.",
+            "symbol": symbol,
+            "quantity": quantity,
+        }
+
+tools = [search_tool, get_stock_price, calculator, purchase_stock]
 llm_with_tools = llm.bind_tools(tools)
 
 # -------------------
