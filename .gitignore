@@ -110,3 +110,6 @@ __marimo__/
 # .vscode/
 # Temporary file for partial code execution
 tempCodeRunnerFile.py
+
+# Local database files
+*.db*
