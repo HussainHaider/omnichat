@@ -1,13 +1,67 @@
 import streamlit as st
 from langgraph_backend import chatbot
 from langchain_core.messages import HumanMessage
+import uuid
 
-# st.session_state -> dict -> 
-CONFIG = {'configurable': {'thread_id': 'thread-1'}}
+# **************************************** utility functions *************************
 
+def generate_thread_id():
+    thread_id = uuid.uuid4()
+    return thread_id
+
+def get_configuration(thread_id=None):
+    if thread_id is None:
+        thread_id = st.session_state['thread_id']
+    return {'configurable': {'thread_id': thread_id}}
+
+def reset_chat():
+    thread_id = generate_thread_id()
+    st.session_state['thread_id'] = thread_id
+    add_thread(thread_id)
+    st.session_state['message_history'] = []
+
+def add_thread(thread_id):
+    if thread_id not in st.session_state['chat_threads']:
+        st.session_state['chat_threads'].append(thread_id)
+
+def load_thread(thread_id):
+    state = chatbot.get_state(config=get_configuration(thread_id))
+    # Check if messages key exists in state values, return empty list if not
+    return state.values.get('messages', [])
+
+
+# ****************************** Session State Management ******************************
 if 'message_history' not in st.session_state:
     st.session_state['message_history'] = []
 
+if 'thread_id' not in st.session_state:
+    st.session_state['thread_id'] = generate_thread_id()
+
+if 'chat_threads' not in st.session_state:
+    st.session_state['chat_threads'] = []
+
+add_thread(st.session_state['thread_id'])
+
+# ****************************** Sidebar UI ******************************
+st.sidebar.title("Omnichat")
+
+if st.sidebar.button("New Chat"):
+    reset_chat()
+
+st.sidebar.header("Chat Threads")
+
+for thread_id in st.session_state['chat_threads'][::-1]:
+    if st.sidebar.button(str(thread_id)):
+        st.session_state['thread_id'] = thread_id
+        messages = load_thread(thread_id)
+
+        temp_message_history = []
+        for message in messages:
+            temp_message_history.append({'role': message.type, 'content': message.content})
+
+        st.session_state['message_history'] = temp_message_history
+
+# ****************************** Main UI ******************************
 # loading the conversation history
 for message in st.session_state['message_history']:
     with st.chat_message(message['role']):
@@ -30,7 +84,7 @@ if user_input:
         ai_message = st.write_stream(
             message_chunk.content for message_chunk, metadata in chatbot.stream(
                 {'messages': [HumanMessage(content=user_input)]},
-                config=CONFIG,
+                config=get_configuration(),
                 stream_mode='messages'
             )
         )
